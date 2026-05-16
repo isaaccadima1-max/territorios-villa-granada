@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Territorios - Cong. Villa Granada</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: Arial, sans-serif; background: #1a1c2e; color: #e8e8f0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+header {
+  background: #12142a; border-bottom: 2px solid #3a3d6b;
+  padding: 8px 16px; display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+}
+header h1 { font-size: 18px; font-weight: bold; color: #fff; }
+header span { font-size: 12px; color: #8b8fb5; }
+
+.toolbar {
+  background: #12142a; border-bottom: 1px solid #2a2d4a;
+  padding: 6px 10px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex-shrink: 0;
+}
+.sep { width: 1px; height: 24px; background: #2a2d4a; margin: 0 4px; }
+.tlabel { font-size: 10px; color: #6668a0; text-transform: uppercase; white-space: nowrap; }
+
+button {
+  font-size: 12px; padding: 5px 9px; border: 1px solid #3a3d6b; border-radius: 4px;
+  cursor: pointer; background: #1e2040; color: #c8caef; white-space: nowrap;
+}
+button:hover { background: #2a2d5a; color: #fff; }
+button.active { background: #3d44a8; border-color: #6b72e0; color: #fff; }
+button.green { background: #1e4030; border-color: #3d8060; color: #80f0b0; }
+button.green:hover { background: #2a5540; }
+button.red { border-color: #7a2d2d; color: #f08080; }
+button.red:hover { background: #5a1e1e; }
+
+select, input[type=number] {
+  font-size: 12px; padding: 5px 7px; border: 1px solid #3a3d6b; border-radius: 4px;
+  background: #1e2040; color: #c8caef;
+}
+input[type=number] { width: 55px; }
+
+.colors { display: flex; gap: 3px; flex-wrap: wrap; max-width: 160px; }
+.cswatch { width: 20px; height: 20px; border-radius: 3px; cursor: pointer; border: 2px solid transparent; }
+.cswatch:hover { transform: scale(1.2); }
+.cswatch.sel { border-color: #fff; transform: scale(1.1); }
+
+#map { flex: 1; z-index: 1; }
+
+.side {
+  position: absolute; top: 10px; right: 10px; z-index: 500;
+  background: rgba(18,20,42,0.93); border: 1px solid #3a3d6b; border-radius: 6px;
+  padding: 10px; width: 160px; max-height: 290px; overflow-y: auto; backdrop-filter: blur(4px);
+}
+.side h3 { font-size: 12px; color: #a0a4d0; text-transform: uppercase; margin-bottom: 8px; }
+.titem { display: flex; align-items: center; gap: 6px; padding: 3px 5px; border-radius: 3px; cursor: pointer; font-size: 12px; }
+.titem:hover { background: #1e2040; }
+.titem.active { background: #2a2d5a; }
+.tdot { width: 11px; height: 11px; border-radius: 2px; flex-shrink: 0; }
+.tdel { margin-left: auto; font-size: 10px; color: #7a3030; padding: 1px 3px; cursor: pointer; border-radius: 2px; }
+.tdel:hover { background: #5a1e1e; color: #f08080; }
+
+.hint {
+  position: absolute; bottom: 16px; left: 10px; z-index: 500;
+  background: rgba(18,20,42,0.92); border: 1px solid #3a3d6b; border-radius: 6px;
+  padding: 8px 12px; font-size: 12px; max-width: 260px; color: #8b8fb5; backdrop-filter: blur(4px);
+}
+.hint strong { color: #c8caef; }
+
+.statusbar {
+  background: #0d0f22; border-top: 1px solid #2a2d4a;
+  padding: 3px 12px; font-size: 11px; color: #5a5d8a; flex-shrink: 0; display: flex; gap: 16px;
+}
+.statusbar span { color: #8b8fb5; }
+
+/* Modal */
+.modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center; }
+.modal-bg.show { display:flex; }
+.modal { background:#1a1c2e; border:1px solid #3a3d6b; border-radius:8px; padding:22px; width:300px; }
+.modal h2 { font-size:16px; margin-bottom:14px; color:#fff; }
+.modal label { display:block; font-size:11px; color:#8b8fb5; margin:10px 0 3px; }
+.modal input { width:100%; font-size:13px; padding:7px 9px; border:1px solid #3a3d6b; border-radius:4px; background:#12142a; color:#e8e8f0; }
+.modal-btns { display:flex; gap:8px; margin-top:18px; justify-content:flex-end; }
+.modal-btns button { padding:7px 16px; font-size:13px; }
+
+/* Leaflet marker overrides */
+.leaflet-control-zoom { display:none; }
+.t-label { background:none!important; border:none!important; box-shadow:none!important; }
+.num-circle {
+  width:28px; height:28px; border-radius:50%; background:white; border:2px solid rgba(0,0,0,0.35);
+  display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:13px;
+  color:#222; box-shadow:0 1px 4px rgba(0,0,0,0.4); cursor:move;
+}
+.num-block {
+  background:rgba(255,255,255,0.92); border:1px solid rgba(0,0,0,0.2); border-radius:3px;
+  padding:1px 5px; font-weight:bold; font-size:12px; color:#333; cursor:move; white-space:nowrap;
+}
+
+::-webkit-scrollbar { width:4px; }
+::-webkit-scrollbar-track { background:#12142a; }
+::-webkit-scrollbar-thumb { background:#3a3d6b; border-radius:2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🗺 Territorios — Cong. "Villa Granada"</h1>
+  <span>Sarcobamba, Cochabamba</span>
+  <span style="margin-left:auto;font-size:11px;color:#4a4d7a" id="autosave-status"></span>
+</header>
+
+<div class="toolbar">
+  <span class="tlabel">Modo</span>
+  <button id="btn-select" class="active" onclick="setMode('select')">👆 Seleccionar</button>
+  <button id="btn-draw" onclick="setMode('draw')">✏️ Dibujar</button>
+  <button id="btn-addnum" onclick="setMode('addnum')">🔢 Número manzana</button>
+  <div class="sep"></div>
+  <span class="tlabel">Territorio</span>
+  <select id="sel-t"><option value="">— nuevo —</option></select>
+  <button onclick="showModal()">+ Nuevo</button>
+  <div class="sep"></div>
+  <span class="tlabel">Color</span>
+  <div class="colors" id="colors"></div>
+  <div class="sep"></div>
+  <button onclick="undoLast()">↩ Deshacer</button>
+  <button onclick="finishPoly()">✔ Cerrar figura</button>
+  <button class="red" onclick="deleteSelected()">🗑 Eliminar</button>
+  <div class="sep"></div>
+  <button class="green" onclick="doExport()">🖨 Imprimir / PDF</button>
+  <button onclick="saveJSON()">💾 Guardar</button>
+  <button onclick="loadJSON()">📂 Cargar</button>
+</div>
+
+<div id="map"></div>
+
+<div class="side">
+  <h3>Territorios (<span id="t-count">0</span>)</h3>
+  <div id="t-list"></div>
+</div>
+
+<div class="hint" id="hint">
+  Presiona <strong>+ Nuevo</strong> para crear un territorio, luego <strong>✏️ Dibujar</strong> y haz clic en el mapa.<br>
+  <strong>Clic derecho</strong> = número grande del territorio.<br>
+  <strong>Doble clic</strong> = cerrar figura.
+</div>
+
+<div class="statusbar">
+  <div>Modo: <span id="st-mode">Seleccionar</span></div>
+  <div>Activo: <span id="st-t">—</span></div>
+  <div>Figuras: <span id="st-count">0</span></div>
+</div>
+
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <h2>Nuevo Territorio</h2>
+    <label>Número</label>
+    <input type="number" id="m-num" min="1" max="99" placeholder="Ej: 1"/>
+    <label>Nombre (opcional)</label>
+    <input type="text" id="m-name" placeholder="Ej: Norte"/>
+    <div class="modal-btns">
+      <button onclick="closeModal()">Cancelar</button>
+      <button class="active" onclick="createTerritory()">Crear</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── COLORS ────────────────────────────────────────────────────────────────────
+const COLORS = [
+  '#4db8a0','#5bbfde','#e8a870','#d4e870','#b09be8',
+  '#e87070','#70b8e8','#e8d070','#a8d870','#e870b0',
+  '#70e8c0','#c8a8e8','#e8b870','#70c8e8','#d0e870',
+  '#f0a880','#80c8a8','#c870e8','#e87890','#88d8f0',
+];
+
+function hexToRgb(h){ return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]; }
+function darken(h,a=50){ const[r,g,b]=hexToRgb(h); return `rgb(${Math.max(r-a,0)},${Math.max(g-a,0)},${Math.max(b-a,0)})`; }
+function lighten(h,a=60){ const[r,g,b]=hexToRgb(h); return `rgb(${Math.min(r+a,255)},${Math.min(g+a,255)},${Math.min(b+a,255)})`; }
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let mode = 'select';
+let territories = {};   // id -> { num, name, color, polys:[], labels:[] }
+let activeId = null;
+let selColor = COLORS[0];
+let drawPts = [], drawLine = null, drawMarkers = [];
+let history = [];       // for undo
+let selected = null;    // { obj, type }
+let nextId = 1;
+
+// ── MAP ───────────────────────────────────────────────────────────────────────
+const map = L.map('map', { center: [-17.376, -66.183], zoom: 16, zoomControl: false });
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
+  maxZoom: 19,
+}).addTo(map);
+
+// ── COLOR SWATCHES ────────────────────────────────────────────────────────────
+const colorDiv = document.getElementById('colors');
+COLORS.forEach((c,i) => {
+  const sw = document.createElement('div');
+  sw.className = 'cswatch' + (i===0?' sel':'');
+  sw.style.background = c;
+  sw.onclick = () => {
+    document.querySelectorAll('.cswatch').forEach(s=>s.classList.remove('sel'));
+    sw.classList.add('sel');
+    selColor = c;
+    if (activeId && territories[activeId]) {
+      territories[activeId].color = c;
+      territories[activeId].polys.forEach(p => p.setStyle({ fillColor:c, color:darken(c,30) }));
+      renderList();
+    }
+  };
+  colorDiv.appendChild(sw);
+});
+
+function setSwatchColor(c) {
+  const swatches = document.querySelectorAll('.cswatch');
+  swatches.forEach(s => {
+    s.classList.remove('sel');
+    if(s.style.backgroundColor === c || s.style.background === c) s.classList.add('sel');
+  });
+  selColor = c;
+}
+
+// ── TERRITORY SELECT ──────────────────────────────────────────────────────────
+document.getElementById('sel-t').onchange = function() {
+  if (this.value) {
+    activeId = this.value;
+    setSwatchColor(territories[activeId].color);
+    updateStatus();
+  }
+};
+
+// ── MODES ─────────────────────────────────────────────────────────────────────
+const modeLabels = { select:'Seleccionar', draw:'Dibujar', addnum:'Agregar número' };
+const modeHints = {
+  select: 'Haz clic en una figura para seleccionarla. Arrastra los números para moverlos.',
+  draw: 'Haz clic para agregar puntos. <strong>Doble clic</strong> o presiona <strong>✔ Cerrar figura</strong> para terminar. <strong>Clic derecho</strong> = número del territorio.',
+  addnum: 'Haz clic en una manzana para poner su número.',
+};
+
+function setMode(m) {
+  if (m !== 'draw') cancelDraw();
+  mode = m;
+  document.querySelectorAll('button[id^="btn-"]').forEach(b => b.classList.remove('active'));
+  const b = document.getElementById('btn-'+m);
+  if (b) b.classList.add('active');
+  document.getElementById('st-mode').textContent = modeLabels[m]||m;
+  document.getElementById('hint').innerHTML = modeHints[m]||'';
+  if (selected) deselect();
+}
+
+// ── MAP EVENTS ────────────────────────────────────────────────────────────────
+map.on('click', e => {
+  if (mode==='draw') {
+    if (!activeId) { alert('Primero crea o selecciona un territorio.'); return; }
+    addPt(e.latlng);
+  } else if (mode==='addnum') {
+    if (!activeId) { alert('Primero selecciona un territorio.'); return; }
+    placeBlockNum(e.latlng);
+  }
+});
+
+map.on('dblclick', e => {
+  if (mode==='draw') { L.DomEvent.stop(e); finishPoly(); }
+});
+
+map.on('contextmenu', e => {
+  if (!activeId) return;
+  placeTerritoryNum(e.latlng);
+});
+
+// ── DRAW ──────────────────────────────────────────────────────────────────────
+function addPt(ll) {
+  drawPts.push(ll);
+  const m = L.circleMarker(ll, { radius:4, color:'#fff', weight:2, fillColor:selColor, fillOpacity:1 }).addTo(map);
+  drawMarkers.push(m);
+  if (drawLine) map.removeLayer(drawLine);
+  if (drawPts.length > 1)
+    drawLine = L.polyline(drawPts, { color:selColor, weight:2, dashArray:'5,5' }).addTo(map);
+}
+
+function finishPoly() {
+  if (drawPts.length < 3) { cancelDraw(); return; }
+  const t = territories[activeId];
+  if (!t) return;
+  const poly = L.polygon(drawPts, {
+    color: darken(t.color,30), weight: 2,
+    fillColor: t.color, fillOpacity: 0.5,
+  }).addTo(map);
+  poly._tid = activeId;
+  poly.on('click', ev => { if (mode==='select') { L.DomEvent.stop(ev); selectObj(poly,'poly'); } });
+  t.polys.push(poly);
+  history.push({ type:'poly', obj:poly, tid:activeId });
+  cancelDraw();
+  updateStatus();
+}
+
+function cancelDraw() {
+  drawPts = [];
+  drawMarkers.forEach(m => map.removeLayer(m));
+  drawMarkers = [];
+  if (drawLine) { map.removeLayer(drawLine); drawLine = null; }
+}
+
+function undoLast() {
+  if (!history.length) return;
+  const last = history.pop();
+  map.removeLayer(last.obj);
+  const t = territories[last.tid];
+  if (t) {
+    if (last.type==='poly') t.polys = t.polys.filter(p=>p!==last.obj);
+    else t.labels = t.labels.filter(l=>l!==last.obj);
+  }
+  updateStatus();
+}
+
+// ── NUMBERS ───────────────────────────────────────────────────────────────────
+function placeBlockNum(ll) {
+  const t = territories[activeId];
+  const n = t.labels.filter(l=>l._isBlock).length + 1;
+  const icon = L.divIcon({ className:'t-label', html:`<div class="num-block">${n}</div>`, iconAnchor:[14,9] });
+  const mk = L.marker(ll, { icon, draggable:true }).addTo(map);
+  mk._isBlock = true; mk._n = n; mk._tid = activeId;
+  mk.on('click', ev => { if (mode==='select') { L.DomEvent.stop(ev); selectObj(mk,'label'); } });
+  t.labels.push(mk);
+  history.push({ type:'label', obj:mk, tid:activeId });
+  updateStatus();
+}
+
+function placeTerritoryNum(ll) {
+  const t = territories[activeId];
+  const icon = L.divIcon({ className:'t-label', html:`<div class="num-circle">${t.num}</div>`, iconAnchor:[14,14] });
+  const mk = L.marker(ll, { icon, draggable:true }).addTo(map);
+  mk._isTNum = true; mk._tid = activeId;
+  mk.on('click', ev => { if (mode==='select') { L.DomEvent.stop(ev); selectObj(mk,'label'); } });
+  t.labels.push(mk);
+  history.push({ type:'label', obj:mk, tid:activeId });
+}
+
+// ── SELECT / DELETE ───────────────────────────────────────────────────────────
+function selectObj(obj, type) {
+  if (selected) deselect();
+  selected = { obj, type };
+  if (type==='poly') {
+    obj.setStyle({ weight:3, color:'#fff', fillOpacity:0.65 });
+  }
+  document.getElementById('hint').innerHTML = type==='poly'
+    ? 'Figura seleccionada. Presiona <strong>🗑 Eliminar</strong> para borrarla.'
+    : 'Número seleccionado. Arrastra para mover. Presiona <strong>🗑 Eliminar</strong> para borrarlo.';
+}
+
+function deselect() {
+  if (!selected) return;
+  if (selected.type==='poly') {
+    const t = territories[selected.obj._tid];
+    if (t) selected.obj.setStyle({ weight:2, color:darken(t.color,30), fillOpacity:0.5 });
+  }
+  selected = null;
+}
+
+function deleteSelected() {
+  if (!selected) { alert('Selecciona una figura o número primero.'); return; }
+  const { obj, type } = selected;
+  map.removeLayer(obj);
+  const t = territories[obj._tid];
+  if (t) {
+    if (type==='poly') t.polys = t.polys.filter(p=>p!==obj);
+    else t.labels = t.labels.filter(l=>l!==obj);
+  }
+  history = history.filter(h=>h.obj!==obj);
+  selected = null;
+  updateStatus();
+}
+
+// ── TERRITORY CRUD ────────────────────────────────────────────────────────────
+function showModal() {
+  const taken = Object.values(territories).map(t=>t.num);
+  let next = 1; while(taken.includes(next)) next++;
+  document.getElementById('m-num').value = next;
+  document.getElementById('m-name').value = '';
+  document.getElementById('modal-bg').classList.add('show');
+  setTimeout(() => document.getElementById('m-num').focus(), 50);
+}
+function closeModal() { document.getElementById('modal-bg').classList.remove('show'); }
+
+function createTerritory() {
+  const num = parseInt(document.getElementById('m-num').value);
+  const name = document.getElementById('m-name').value.trim();
+  if (!num || num < 1) { alert('Ingresa un número válido.'); return; }
+  const id = 'T' + (nextId++);
+  const color = COLORS[Object.keys(territories).length % COLORS.length];
+  territories[id] = { num, name, color, polys:[], labels:[] };
+  const sel = document.getElementById('sel-t');
+  const opt = document.createElement('option');
+  opt.value = id; opt.textContent = `Territorio ${num}${name?' – '+name:''}`;
+  sel.appendChild(opt);
+  sel.value = id;
+  activeId = id;
+  setSwatchColor(color);
+  closeModal();
+  renderList();
+  updateStatus();
+  setMode('draw');
+}
+
+function removeTerritory(id, e) {
+  e.stopPropagation();
+  if (!confirm(`¿Eliminar Territorio ${territories[id]?.num}?`)) return;
+  const t = territories[id];
+  t.polys.forEach(p => map.removeLayer(p));
+  t.labels.forEach(l => map.removeLayer(l));
+  history = history.filter(h=>h.tid!==id);
+  const sel = document.getElementById('sel-t');
+  [...sel.options].forEach(o => { if(o.value===id) o.remove(); });
+  delete territories[id];
+  if (activeId===id) { activeId=null; sel.value=''; }
+  renderList();
+  updateStatus();
+}
+
+function renderList() {
+  const list = document.getElementById('t-list');
+  list.innerHTML = '';
+  Object.entries(territories).sort((a,b)=>a[1].num-b[1].num).forEach(([id,t]) => {
+    const div = document.createElement('div');
+    div.className = 'titem' + (id===activeId?' active':'');
+    div.innerHTML = `<div class="tdot" style="background:${t.color}"></div>
+      <span>T${t.num}${t.name?' '+t.name:''}</span>
+      <span class="tdel" onclick="removeTerritory('${id}',event)">✕</span>`;
+    div.onclick = () => {
+      activeId = id;
+      document.getElementById('sel-t').value = id;
+      setSwatchColor(t.color);
+      renderList();
+      updateStatus();
+    };
+    list.appendChild(div);
+  });
+  document.getElementById('t-count').textContent = Object.keys(territories).length;
+}
+
+function updateStatus() {
+  const t = activeId && territories[activeId];
+  document.getElementById('st-t').textContent = t ? `T${t.num}${t.name?' – '+t.name:''}` : '—';
+  const total = Object.values(territories).reduce((s,t)=>s+t.polys.length,0);
+  document.getElementById('st-count').textContent = total;
+  renderList();
+  autoSave();
+}
+
+// ── SAVE / LOAD ───────────────────────────────────────────────────────────────
+function buildData() {
+  return {
+    v: 2, nextId,
+    territories: Object.fromEntries(Object.entries(territories).map(([id,t]) => [id, {
+      num:t.num, name:t.name, color:t.color,
+      polys: t.polys.map(p => p.getLatLngs()),
+      blocks: t.labels.filter(l=>l._isBlock).map(l=>({ ll:l.getLatLng(), n:l._n })),
+      tnums: t.labels.filter(l=>l._isTNum).map(l=>l.getLatLng()),
+    }]))
+  };
+}
+
+function restoreData(data) {
+  Object.values(territories).forEach(t => {
+    t.polys.forEach(p=>map.removeLayer(p));
+    t.labels.forEach(l=>map.removeLayer(l));
+  });
+  territories = {}; history = [];
+  const sel = document.getElementById('sel-t');
+  [...sel.options].forEach(o => { if(o.value) o.remove(); });
+  nextId = data.nextId || 1;
+
+  Object.entries(data.territories).forEach(([id,td]) => {
+    territories[id] = { num:td.num, name:td.name, color:td.color, polys:[], labels:[] };
+    td.polys.forEach(lls => {
+      const poly = L.polygon(lls, { color:darken(td.color,30), weight:2, fillColor:td.color, fillOpacity:0.5 }).addTo(map);
+      poly._tid = id;
+      poly.on('click', ev => { if(mode==='select'){ L.DomEvent.stop(ev); selectObj(poly,'poly'); }});
+      territories[id].polys.push(poly);
+      history.push({ type:'poly', obj:poly, tid:id });
+    });
+    (td.blocks||[]).forEach(b => {
+      const icon = L.divIcon({ className:'t-label', html:`<div class="num-block">${b.n}</div>`, iconAnchor:[14,9] });
+      const mk = L.marker(b.ll, { icon, draggable:true }).addTo(map);
+      mk._isBlock=true; mk._n=b.n; mk._tid=id;
+      mk.on('click', ev=>{ if(mode==='select'){ L.DomEvent.stop(ev); selectObj(mk,'label'); }});
+      territories[id].labels.push(mk);
+    });
+    (td.tnums||[]).forEach(ll => {
+      const icon = L.divIcon({ className:'t-label', html:`<div class="num-circle">${td.num}</div>`, iconAnchor:[14,14] });
+      const mk = L.marker(ll, { icon, draggable:true }).addTo(map);
+      mk._isTNum=true; mk._tid=id;
+      mk.on('click', ev=>{ if(mode==='select'){ L.DomEvent.stop(ev); selectObj(mk,'label'); }});
+      territories[id].labels.push(mk);
+    });
+    const opt = document.createElement('option');
+    opt.value=id; opt.textContent=`Territorio ${td.num}${td.name?' – '+td.name:''}`;
+    sel.appendChild(opt);
+  });
+  renderList(); updateStatus();
+}
+
+function autoSave() {
+  try { localStorage.setItem('vg_map', JSON.stringify(buildData())); document.getElementById('autosave-status').textContent='✔ Auto-guardado'; } catch(e){}
+}
+
+function saveJSON() {
+  const blob = new Blob([JSON.stringify(buildData(),null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'territorios_villa_granada.json';
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 500);
+}
+
+function loadJSON() {
+  const inp = document.createElement('input');
+  inp.type='file'; inp.accept='.json';
+  inp.onchange = e => {
+    const f = e.target.files[0]; if(!f) return;
+    const r = new FileReader();
+    r.onload = ev => {
+      try { restoreData(JSON.parse(ev.target.result)); alert('Cargado correctamente.'); }
+      catch(err) { alert('Error: '+err.message); }
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+}
+
+// ── EXPORT / PRINT ────────────────────────────────────────────────────────────
+function doExport() {
+  const btn = document.querySelector('button.green');
+  if (btn) { btn.textContent='⏳ Generando...'; btn.disabled=true; }
+
+  // Use a canvas and draw territories only (no tile CORS issues)
+  // The base map will be a light background with street grid from overpass or just white
+  const mapEl = document.getElementById('map');
+  const W = mapEl.offsetWidth;
+  const H = mapEl.offsetHeight;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W * 2; canvas.height = H * 2;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(2,2);
+
+  // Light map background
+  ctx.fillStyle = '#f2efe9';
+  ctx.fillRect(0,0,W,H);
+
+  // Draw grid lines as subtle street reference
+  ctx.strokeStyle = '#ddd'; ctx.lineWidth = 0.5;
+  for(let x=0;x<W;x+=40){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for(let y=0;y<H;y+=40){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  function ll2pt(ll) { return map.latLngToContainerPoint(ll); }
+
+  // Draw polygons
+  Object.values(territories).forEach(t => {
+    t.polys.forEach(poly => {
+      const raw = poly.getLatLngs();
+      const lls = Array.isArray(raw[0]) ? raw[0] : raw;
+      if (!lls || lls.length < 2) return;
+      ctx.beginPath();
+      lls.forEach((ll,i) => {
+        const pt = ll2pt(ll);
+        i===0 ? ctx.moveTo(pt.x,pt.y) : ctx.lineTo(pt.x,pt.y);
+      });
+      ctx.closePath();
+      const [r,g,b] = hexToRgb(t.color);
+      ctx.fillStyle = `rgba(${r},${g},${b},0.55)`;
+      ctx.fill();
+      ctx.strokeStyle = darken(t.color,40);
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+  });
+
+  // Draw block numbers
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  Object.values(territories).forEach(t => {
+    t.labels.filter(l=>l._isBlock).forEach(mk => {
+      const pt = ll2pt(mk.getLatLng());
+      const txt = String(mk._n);
+      ctx.font='bold 11px Arial';
+      const tw = ctx.measureText(txt).width + 8;
+      ctx.fillStyle='rgba(255,255,255,0.93)';
+      ctx.strokeStyle='rgba(0,0,0,0.2)'; ctx.lineWidth=1;
+      ctx.beginPath();
+      if(ctx.roundRect) ctx.roundRect(pt.x-tw/2,pt.y-8,tw,16,3);
+      else ctx.rect(pt.x-tw/2,pt.y-8,tw,16);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#333';
+      ctx.fillText(txt,pt.x,pt.y);
+    });
+  });
+
+  // Draw territory numbers (circles)
+  Object.values(territories).forEach(t => {
+    t.labels.filter(l=>l._isTNum).forEach(mk => {
+      const pt = ll2pt(mk.getLatLng());
+      ctx.shadowColor='rgba(0,0,0,0.25)'; ctx.shadowBlur=4;
+      ctx.beginPath(); ctx.arc(pt.x,pt.y,14,0,Math.PI*2);
+      ctx.fillStyle='white'; ctx.fill();
+      ctx.shadowBlur=0;
+      ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=2; ctx.stroke();
+      ctx.fillStyle='#111'; ctx.font='bold 13px Arial';
+      ctx.fillText(String(t.num),pt.x,pt.y);
+    });
+  });
+
+  // Title box
+  ctx.shadowBlur=0;
+  ctx.fillStyle='rgba(255,255,255,0.9)';
+  ctx.fillRect(6,6,260,24);
+  ctx.strokeStyle='#ccc'; ctx.lineWidth=1;
+  ctx.strokeRect(6,6,260,24);
+  ctx.fillStyle='#333'; ctx.font='bold 13px Arial';
+  ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillText('Cong. "Villa Granada" — Sarcobamba, Cochabamba',12,18);
+
+  if (btn) { btn.textContent='🖨 Imprimir / PDF'; btn.disabled=false; }
+
+  const img = canvas.toDataURL('image/png');
+
+  // Open print window
+  const win = window.open('','_blank','width=900,height=700');
+  if (!win) {
+    // Popup blocked – download directly
+    const a = document.createElement('a');
+    a.href=img; a.download='mapa_territorios.png';
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>document.body.removeChild(a),500);
+    return;
+  }
+  win.document.write(`<!DOCTYPE html><html><head>
+    <title>Territorios Villa Granada</title>
+    <style>
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{background:#eee;display:flex;flex-direction:column;align-items:center;padding:16px;gap:12px;font-family:Arial}
+      img{max-width:100%;border:1px solid #bbb;box-shadow:0 2px 10px rgba(0,0,0,0.2);background:white}
+      .bar{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+      button{padding:10px 22px;font-size:14px;cursor:pointer;border:1px solid #888;border-radius:5px;background:#f0f0f0}
+      button:hover{background:#ddd}
+      @media print{.bar{display:none}body{padding:0;background:white}img{width:100%;box-shadow:none;border:none}}
+    </style></head>
+    <body>
+    <img src="${img}"/>
+    <div class="bar">
+      <button onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
+      <a href="${img}" download="mapa_territorios.png"><button>💾 Descargar PNG</button></a>
+    </div></body></html>`);
+  win.document.close();
+}
+
+// ── KEYBOARD ──────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.target.tagName==='INPUT') return;
+  if (e.key==='Escape') { cancelDraw(); setMode('select'); }
+  if (e.key==='Enter') finishPoly();
+  if ((e.key==='d'||e.key==='D') && !e.ctrlKey) setMode('draw');
+  if ((e.key==='s'||e.key==='S') && !e.ctrlKey) setMode('select');
+  if ((e.key==='n'||e.key==='N') && !e.ctrlKey) setMode('addnum');
+  if ((e.key==='z'||e.key==='Z') && (e.ctrlKey||e.metaKey)) undoLast();
+  if (e.key==='Delete'||e.key==='Backspace') { if(selected) deleteSelected(); }
+});
+
+// ── AUTO RESTORE ──────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  try {
+    const saved = localStorage.getItem('vg_map');
+    if (saved) {
+      const data = JSON.parse(saved);
+      if (data && data.territories && Object.keys(data.territories).length > 0) {
+        if (confirm('Se encontró trabajo guardado. ¿Deseas restaurarlo?')) {
+          restoreData(data);
+          document.getElementById('autosave-status').textContent='✔ Trabajo restaurado';
+        }
+      }
+    }
+  } catch(e){}
+});
+</script>
+</body>
+</html>
